@@ -1,0 +1,35 @@
+@use "../../../assets/styles/extends";
+@use "../../../assets/styles/colors";
+
+.join-room-content {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  @extend %body-sm;
+  color: colors.$g-900;
+
+  &__cards {
+    display: flex;
+    flex-direction: row;
+    column-gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  &__header {
+    @extend %title-md;
+    color: colors.$g-950;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__list li {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+}

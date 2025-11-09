@@ -1,0 +1,7 @@
+@use "../../assets/styles/extends";
+
+.join-room {
+  @extend %main-element;
+  justify-content: center;
+  align-items: center;
+}
