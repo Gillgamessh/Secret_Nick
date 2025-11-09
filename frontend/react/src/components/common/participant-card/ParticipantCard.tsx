@@ -13,6 +13,7 @@ const ParticipantCard = ({
   adminInfo = "",
   participantLink = "",
   onInfoButtonClick,
+  onDeleteUser,
 }: ParticipantCardProps) => {
   return (
     <ItemCard title={`${firstName} ${lastName}`} isFocusable>
@@ -36,6 +37,24 @@ const ParticipantCard = ({
           <InfoButton withoutToaster onClick={onInfoButtonClick} />
         ) : null}
 
+        {isCurrentUserAdmin && !isCurrentUser && onDeleteUser && (
+          <button
+            onClick={onDeleteUser}
+            className="delete-button"
+            style={{
+              marginLeft: "8px",
+              backgroundColor: "#e74c3c",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              padding: "4px 10px",
+              cursor: "pointer",
+            }}
+          >
+            Delete user
+          </button>
+        )}
+        
         {!isCurrentUser && isAdmin ? (
           <InfoButton infoMessage={adminInfo} />
         ) : null}

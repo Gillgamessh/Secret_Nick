@@ -7,4 +7,5 @@ export interface ParticipantCardProps {
   adminInfo?: string;
   participantLink?: string;
   onInfoButtonClick?: () => void;
+  onDeleteUser?: () => void;
 }

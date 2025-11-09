@@ -15,6 +15,7 @@ const ParticipantsList = ({ participants }: ParticipantsListProps) => {
   const [selectedParticipant, setSelectedParticipant] =
     useState<PersonalInformation | null>(null);
 
+  const [isLoading, setIsLoading] = useState(false);
   const admin = participants?.find((participant) => participant?.isAdmin);
   const restParticipants = participants?.filter(
     (participant) => !participant?.isAdmin,
@@ -35,6 +36,50 @@ const ParticipantsList = ({ participants }: ParticipantsListProps) => {
   };
 
   const handleModalClose = () => setSelectedParticipant(null);
+  
+  const handleDeleteParticipant = async (userId: string) => {
+  if (!admin) return;
+  const adminSecretCode = admin.userCode;
+
+  if (!confirm("Are you sure you want to remove this participant?")) return;
+
+  try {
+    setIsLoading(true);
+
+    const response = await fetch(`/api/users/${userId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ adminSecretCode }),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Failed to delete participant (status ${response.status})`;
+      try {
+        const contentType = response.headers.get("Content-Type");
+        if (contentType?.includes("application/json")) {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } else {
+          const text = await response.text();
+          if (text) errorMessage = text;
+        }
+      } catch {
+      }
+      throw new Error(errorMessage);
+    }
+
+    setParticipants((prev) => prev.filter((p) => p.id !== userId));
+
+    alert("✅ Participant successfully deleted.");
+  } catch (error) {
+    console.error("Delete failed:", error);
+    alert(error instanceof Error ? error.message : "Unexpected error occurred");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div
@@ -82,6 +127,11 @@ const ParticipantsList = ({ participants }: ParticipantsListProps) => {
                   ? () => handleInfoButtonClick(user)
                   : undefined
               }
+              onDeleteUser={
+                userCode === admin?.userCode && userCode !== user?.userCode
+                  ? () => handleDeleteParticipant(user?.id)
+                  : undefined
+              } 
             />
           ))}
         </div>
