@@ -6,16 +6,16 @@ import type { Participant } from "@types/api";
 import {
   MAX_PARTICIPANTS_NUMBER,
   generateParticipantLink,
+  BASE_API_URL,
 } from "@utils/general";
 import { type ParticipantsListProps, type PersonalInformation } from "./types";
 import "./ParticipantsList.scss";
 
-const ParticipantsList = ({ participants }: ParticipantsListProps) => {
+const ParticipantsList = ({ participants, onDeleteUser }: ParticipantsListProps) => {
   const { userCode } = useParams();
   const [selectedParticipant, setSelectedParticipant] =
     useState<PersonalInformation | null>(null);
 
-  const [isLoading, setIsLoading] = useState(false);
   const admin = participants?.find((participant) => participant?.isAdmin);
   const restParticipants = participants?.filter(
     (participant) => !participant?.isAdmin,
@@ -36,51 +36,19 @@ const ParticipantsList = ({ participants }: ParticipantsListProps) => {
   };
 
   const handleModalClose = () => setSelectedParticipant(null);
-  
-  const handleDeleteParticipant = async (userId: string) => {
-  if (!admin) return;
-  const adminSecretCode = admin.userCode;
+  const handleDeleteUser = async (id: number) => {
+    try {
+      await fetch(`${BASE_API_URL}/api/users/${id}?userCode=${admin?.userCode}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
 
-  if (!confirm("Are you sure you want to remove this participant?")) return;
-
-  try {
-    setIsLoading(true);
-
-    const response = await fetch(`/api/users/${userId}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ adminSecretCode }),
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Failed to delete participant (status ${response.status})`;
-      try {
-        const contentType = response.headers.get("Content-Type");
-        if (contentType?.includes("application/json")) {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } else {
-          const text = await response.text();
-          if (text) errorMessage = text;
-        }
-      } catch {
-      }
-      throw new Error(errorMessage);
+      onDeleteUser?.(id);
+      window.location.reload();
+    } catch (e) {
+      console.error("Failed to delete user", e);
     }
-
-    setParticipants((prev) => prev.filter((p) => p.id !== userId));
-
-    alert("✅ Participant successfully deleted.");
-  } catch (error) {
-    console.error("Delete failed:", error);
-    alert(error instanceof Error ? error.message : "Unexpected error occurred");
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+  };
   return (
     <div
       className={`participant-list ${isParticipantsMoreThanTen ? "participant-list--shift-bg-image" : ""}`}
@@ -128,10 +96,10 @@ const ParticipantsList = ({ participants }: ParticipantsListProps) => {
                   : undefined
               }
               onDeleteUser={
-                userCode === admin?.userCode && userCode !== user?.userCode
-                  ? () => handleDeleteParticipant(user?.id)
+                userCode === admin?.userCode
+                  ? () => handleDeleteUser(user.id)
                   : undefined
-              } 
+              }
             />
           ))}
         </div>
