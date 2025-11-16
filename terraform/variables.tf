@@ -121,7 +121,7 @@ variable "iam_instance_profile" {
 variable "instance_type" {
   description = "The type of instance to start"
   type        = string
-  default     = "t2.micro"
+  default     = "t3.micro"
 }
 
 variable "ec2_name_set" {

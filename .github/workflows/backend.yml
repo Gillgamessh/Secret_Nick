@@ -33,7 +33,7 @@ jobs:
     secrets: inherit
 
   build:
-    needs: check-infra
+    needs: [check-infra, test]
     if: github.event_name == 'push' && needs.check-infra.outputs.infra-available == 'true'
     name: Build Backend Docker Image
     permissions:

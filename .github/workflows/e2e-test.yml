@@ -1,0 +1,114 @@
+name: e2e test
+run-name: "e2e run - ${{ github.event.inputs.config }} (${{ github.event.inputs.testType }})"
+
+on:
+  workflow_dispatch:
+    inputs:
+      config:
+        description: 'Target service to test (React_Headless or Angular_Headless)'
+        required: true
+        default: 'Angular_Headless'
+        type: choice
+        options:
+          - Angular_Headless
+          - React_Headless
+      testType:
+        description: 'Which tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - api
+          - ui
+
+jobs:
+  test:
+    name: "E2E Tests - ${{ github.event.inputs.config }} (${{ github.event.inputs.testType }})"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Create .env
+        run: |
+          PSQL_USER=admin
+          PSQL_PASSWORD=$(uuidgen | cut -d '-' -f1)
+          PSQL_DB=itm
+
+          cat > .env << EOF
+          PSQL_USER=$PSQL_USER
+          PSQL_PASSWORD=$PSQL_PASSWORD
+          PSQL_DB=$PSQL_DB
+          CONNECTIONSTRINGS__DBCONNECTIONSTRING=Host=db;Port=5432;Database=$PSQL_DB;Username=$PSQL_USER;Password=$PSQL_PASSWORD
+          EOF
+
+      - name: Start Docker services
+        run: |
+          docker compose up -d
+          sleep 30
+
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8080/api/system/info; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:8081; do sleep 2; done'
+          timeout 60 bash -c 'until curl -f http://localhost:8082; do sleep 2; done'
+
+      - name: Verify network connectivity
+        run: |
+          echo "=== Docker containers ==="
+          docker compose ps
+          echo "=== Backend API ==="
+          curl -v http://localhost:8080/api/system/info
+          echo "=== Angular UI ==="
+          curl -I http://localhost:8081
+          echo "=== React UI ==="
+          curl -I http://localhost:8082
+
+      - name: Restore dependencies
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: dotnet restore Tests.csproj
+
+      - name: Build tests
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: dotnet build Tests.csproj -c ${{ github.event.inputs.config }} --no-restore
+
+      - name: Install Playwright
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: |
+          pwsh bin/${{ github.event.inputs.config }}/net9.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run tests
+        working-directory: testautomation/SecretNick.TestAutomation/Tests
+        run: |
+          if [ "${{ github.event.inputs.testType }}" == "all" ]; then
+            dotnet test Tests.csproj -c ${{ github.event.inputs.config }} --no-build --logger trx
+          elif [ "${{ github.event.inputs.testType }}" == "api" ]; then
+            dotnet test Tests.csproj -c ${{ github.event.inputs.config }} --no-build --logger trx --filter "TestCategory=api"
+          elif [ "${{ github.event.inputs.testType }}" == "ui" ]; then
+            dotnet test Tests.csproj -c ${{ github.event.inputs.config }} --no-build --logger trx --filter "TestCategory=ui"
+          fi
+        env:
+          TEST_BaseUrls__Api: "http://localhost:8080/"
+          TEST_BaseUrls__Ui: ${{ github.event.inputs.config == 'Angular_Headless' && 'http://localhost:8081' || 'http://localhost:8082' }}
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.event.inputs.config }}-${{ github.event.inputs.testType }}
+          path: |
+            testautomation/SecretNick.TestAutomation/Tests/bin/${{ github.event.inputs.config }}/net*/reqnroll_report.html
+            testautomation/SecretNick.TestAutomation/Tests/bin/${{ github.event.inputs.config }}/net*/Screenshots/
+            testautomation/SecretNick.TestAutomation/Tests/TestResults/*.trx
+            testautomation/SecretNick.TestAutomation/Tests/logs/
+          retention-days: 30
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

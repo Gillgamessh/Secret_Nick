@@ -1,4 +1,4 @@
-name: Check Infrastructure Deployment
+name: check infrastructure
 
 on:
   workflow_call: 
